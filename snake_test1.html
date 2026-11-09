@@ -16,32 +16,33 @@
 
     * { box-sizing: border-box; }
 
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
     body {
-      min-height: 100vh;
       margin: 0;
-      display: grid;
-      place-items: center;
-      padding: 24px 16px;
-      background:
-        radial-gradient(ellipse at 50% 12%, rgba(80, 145, 75, .16), transparent 55%),
-        #101812;
+      background: #101812;
     }
 
     .game {
-      width: min(100%, 500px);
-      padding: 28px;
-      border: 1px solid #29382c;
-      border-radius: 24px;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      padding: 12px 16px;
       background: rgba(22, 32, 24, .96);
-      box-shadow: 0 24px 80px rgba(0, 0, 0, .35);
     }
 
     header {
       display: flex;
+      flex: none;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
     }
 
     h1 {
@@ -83,18 +84,21 @@
 
     .board-wrap {
       position: relative;
+      flex: 1;
+      min-height: 0;
       overflow: hidden;
       border: 1px solid #344637;
       border-radius: 16px;
-      background: #17241a;
+      background: #101812;
       line-height: 0;
     }
 
     canvas {
+      position: absolute;
+      inset: 0;
       display: block;
       width: 100%;
-      height: auto;
-      aspect-ratio: 1;
+      height: 100%;
       touch-action: none;
     }
 
@@ -127,12 +131,14 @@
 
     .actions {
       display: flex;
+      flex: none;
       gap: 10px;
-      margin-top: 16px;
+      margin-top: 10px;
     }
 
     button {
       min-height: 46px;
+      padding: 0 18px;
       border: 1px solid #3c523f;
       border-radius: 12px;
       background: #233327;
@@ -162,7 +168,8 @@
     #start-button:hover { background: #c8ff90; }
 
     .help {
-      margin: 15px 0 0;
+      flex: none;
+      margin: 8px 0 0;
       color: #92a493;
       font-size: .83rem;
       text-align: center;
@@ -170,8 +177,9 @@
 
     .touch-controls {
       display: none;
-      width: 174px;
-      margin: 18px auto 0;
+      flex: none;
+      width: 170px;
+      margin: 10px auto 0;
       grid-template: repeat(2, 52px) / repeat(3, 52px);
       gap: 7px;
     }
@@ -189,11 +197,24 @@
 
     @media (pointer: coarse) {
       .touch-controls { display: grid; }
-      .help { margin-top: 12px; }
     }
 
-    @media (max-width: 420px) {
-      .game { padding: 20px 16px; border-radius: 20px; }
+    @media (max-height: 520px) {
+      .game { padding: 8px 12px; }
+      header { margin-bottom: 6px; }
+      h1 { font-size: 1.2rem; }
+      .subtitle, .help { display: none; }
+      .score-box { padding: 3px 12px; }
+      #score { font-size: 1.1rem; }
+      .actions { margin-top: 6px; }
+      .touch-controls {
+        position: fixed;
+        right: 20px;
+        bottom: 68px;
+        z-index: 2;
+        margin: 0;
+        opacity: .8;
+      }
     }
   </style>
 </head>
@@ -210,8 +231,8 @@
       </div>
     </header>
 
-    <section class="board-wrap" aria-label="貪吃蛇遊戲區">
-      <canvas id="board" width="400" height="400" aria-label="貪吃蛇遊戲畫面"></canvas>
+    <section id="board-wrap" class="board-wrap" aria-label="貪吃蛇遊戲區">
+      <canvas id="board" aria-label="貪吃蛇遊戲畫面"></canvas>
       <div id="overlay" class="overlay">
         <div class="overlay-card">
           <h2 id="overlay-title">準備好了嗎？</h2>
@@ -236,6 +257,7 @@
 
   <script>
     (() => {
+      const boardWrap = document.getElementById("board-wrap");
       const canvas = document.getElementById("board");
       const context = canvas.getContext("2d");
       const scoreDisplay = document.getElementById("score");
@@ -244,8 +266,9 @@
       const overlayMessage = document.getElementById("overlay-message");
       const startButton = document.getElementById("start-button");
       const pauseButton = document.getElementById("pause-button");
-      const gridSize = 20;
-      const cellSize = canvas.width / gridSize;
+      const shortSideCells = 20;
+      const baseInterval = 200;
+      const minInterval = 120;
       const directions = {
         ArrowUp: { x: 0, y: -1 },
         w: { x: 0, y: -1 },
@@ -264,12 +287,45 @@
       let score;
       let timer = null;
       let state = "ready";
+      let viewWidth = 0;
+      let viewHeight = 0;
+      let pixelRatio = 1;
+      let cols = shortSideCells;
+      let rows = shortSideCells;
+      let cellSize = 1;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      function measureCanvas() {
+        viewWidth = boardWrap.clientWidth;
+        viewHeight = boardWrap.clientHeight;
+        pixelRatio = window.devicePixelRatio || 1;
+        canvas.width = Math.round(viewWidth * pixelRatio);
+        canvas.height = Math.round(viewHeight * pixelRatio);
+      }
+
+      // 依畫面比例決定格數：短邊固定格數，長邊盡量填滿，格子維持正方形。
+      function chooseGrid() {
+        const size = Math.min(viewWidth, viewHeight) / shortSideCells;
+        cols = Math.max(shortSideCells, Math.floor(viewWidth / size));
+        rows = Math.max(shortSideCells, Math.floor(viewHeight / size));
+      }
+
+      function fitGrid() {
+        cellSize = Math.min(viewWidth / cols, viewHeight / rows);
+        offsetX = (viewWidth - cols * cellSize) / 2;
+        offsetY = (viewHeight - rows * cellSize) / 2;
+      }
 
       function reset() {
+        chooseGrid();
+        fitGrid();
+        const startX = Math.floor(cols / 2);
+        const startY = Math.floor(rows / 2);
         snake = [
-          { x: 9, y: 10 },
-          { x: 8, y: 10 },
-          { x: 7, y: 10 }
+          { x: startX, y: startY },
+          { x: startX - 1, y: startY },
+          { x: startX - 2, y: startY }
         ];
         direction = { x: 1, y: 0 };
         nextDirection = direction;
@@ -281,8 +337,8 @@
 
       function placeFood() {
         const emptyCells = [];
-        for (let y = 0; y < gridSize; y += 1) {
-          for (let x = 0; x < gridSize; x += 1) {
+        for (let y = 0; y < rows; y += 1) {
+          for (let x = 0; x < cols; x += 1) {
             if (!snake.some((segment) => segment.x === x && segment.y === y)) {
               emptyCells.push({ x, y });
             }
@@ -294,20 +350,29 @@
       }
 
       function draw() {
+        const fieldWidth = cols * cellSize;
+        const fieldHeight = rows * cellSize;
+
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.fillStyle = "#101812";
+        context.fillRect(0, 0, viewWidth, viewHeight);
+        context.translate(offsetX, offsetY);
+
         context.fillStyle = "#17241a";
-        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillRect(0, 0, fieldWidth, fieldHeight);
 
         context.strokeStyle = "rgba(155, 190, 145, .055)";
         context.lineWidth = 1;
-        for (let i = 1; i < gridSize; i += 1) {
-          const position = i * cellSize;
-          context.beginPath();
-          context.moveTo(position, 0);
-          context.lineTo(position, canvas.height);
-          context.moveTo(0, position);
-          context.lineTo(canvas.width, position);
-          context.stroke();
+        context.beginPath();
+        for (let x = 1; x < cols; x += 1) {
+          context.moveTo(x * cellSize, 0);
+          context.lineTo(x * cellSize, fieldHeight);
         }
+        for (let y = 1; y < rows; y += 1) {
+          context.moveTo(0, y * cellSize);
+          context.lineTo(fieldWidth, y * cellSize);
+        }
+        context.stroke();
 
         if (food) {
           const centerX = food.x * cellSize + cellSize / 2;
@@ -318,35 +383,43 @@
           context.fill();
           context.fillStyle = "#b7f27e";
           context.beginPath();
-          context.ellipse(centerX + 4, centerY - 7, 4, 2, -.6, 0, Math.PI * 2);
+          context.ellipse(
+            centerX + cellSize * .2,
+            centerY - cellSize * .35,
+            cellSize * .2,
+            cellSize * .1,
+            -.6,
+            0,
+            Math.PI * 2
+          );
           context.fill();
         }
 
         snake.forEach((segment, index) => {
-          const inset = 2;
+          const inset = cellSize * .1;
           context.fillStyle = index === 0 ? "#c8ff90" : "#83c96c";
           roundedRect(
             segment.x * cellSize + inset,
             segment.y * cellSize + inset,
             cellSize - inset * 2,
             cellSize - inset * 2,
-            index === 0 ? 6 : 5
+            cellSize * (index === 0 ? .3 : .25)
           );
         });
 
         if (snake.length) {
           const head = snake[0];
-          const eyeOffsetX = direction.x === 0 ? 4 : direction.x * 3;
-          const eyeOffsetY = direction.y === 0 ? 4 : direction.y * 3;
+          const forward = cellSize * .15;
+          const spread = cellSize * .2;
           const centerX = head.x * cellSize + cellSize / 2;
           const centerY = head.y * cellSize + cellSize / 2;
           context.fillStyle = "#233327";
           for (const side of [-1, 1]) {
             context.beginPath();
             context.arc(
-              centerX + eyeOffsetX + (direction.y !== 0 ? side * 4 : 0),
-              centerY + eyeOffsetY + (direction.x !== 0 ? side * 4 : 0),
-              1.5,
+              centerX + direction.x * forward + direction.y * side * spread,
+              centerY + direction.y * forward + direction.x * side * spread,
+              cellSize * .08,
               0,
               Math.PI * 2
             );
@@ -370,7 +443,7 @@
         const ateFood = food && head.x === food.x && head.y === food.y;
         const bodyToCheck = ateFood ? snake : snake.slice(0, -1);
         const hitWall =
-          head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize;
+          head.x < 0 || head.x >= cols || head.y < 0 || head.y >= rows;
         const hitSelf = bodyToCheck.some(
           (segment) => segment.x === head.x && segment.y === head.y
         );
@@ -403,7 +476,7 @@
         startButton.textContent = "重新開始";
         pauseButton.textContent = "暫停";
         clearInterval(timer);
-        timer = setInterval(tick, Math.max(65, 135 - score / 10 * 2));
+        timer = setInterval(tick, Math.max(minInterval, baseInterval - score / 10 * 2));
       }
 
       function pauseGame() {
@@ -476,6 +549,20 @@
       });
       pauseButton.addEventListener("click", pauseGame);
 
+      // 視窗大小改變時重新配置；遊戲進行中保留格數，只縮放畫面。
+      function handleResize() {
+        measureCanvas();
+        if (state === "ready") {
+          reset();
+        } else {
+          fitGrid();
+          draw();
+        }
+      }
+
+      new ResizeObserver(handleResize).observe(boardWrap);
+
+      measureCanvas();
       reset();
     })();
   </script>
