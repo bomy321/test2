@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101812">
+  <title>貪吃蛇</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI", "Noto Sans TC", sans-serif;
+      background: #101812;
+      color: #eff7eb;
+      font-synthesis: none;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px 16px;
+      background:
+        radial-gradient(ellipse at 50% 12%, rgba(80, 145, 75, .16), transparent 55%),
+        #101812;
+    }
+
+    .game {
+      width: min(100%, 500px);
+      padding: 28px;
+      border: 1px solid #29382c;
+      border-radius: 24px;
+      background: rgba(22, 32, 24, .96);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .35);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 6vw, 2rem);
+      letter-spacing: .04em;
+    }
+
+    .subtitle {
+      margin: 5px 0 0;
+      color: #92a493;
+      font-size: .9rem;
+    }
+
+    .score-box {
+      min-width: 88px;
+      padding: 9px 13px;
+      border: 1px solid #344637;
+      border-radius: 14px;
+      background: #1b291e;
+      text-align: center;
+    }
+
+    .score-label {
+      display: block;
+      color: #9aab9a;
+      font-size: .72rem;
+      letter-spacing: .12em;
+    }
+
+    #score {
+      display: block;
+      margin-top: 2px;
+      color: #b7f27e;
+      font-size: 1.45rem;
+      font-weight: 750;
+      line-height: 1.1;
+    }
+
+    .board-wrap {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #344637;
+      border-radius: 16px;
+      background: #17241a;
+      line-height: 0;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1;
+      touch-action: none;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(12, 20, 14, .72);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .overlay[hidden] { display: none; }
+
+    .overlay-card {
+      max-width: 290px;
+    }
+
+    .overlay h2 {
+      margin: 0 0 8px;
+      font-size: 1.7rem;
+    }
+
+    .overlay p {
+      margin: 0;
+      color: #bdcabb;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button {
+      min-height: 46px;
+      border: 1px solid #3c523f;
+      border-radius: 12px;
+      background: #233327;
+      color: #eff7eb;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+      transition: background .15s, transform .15s, border-color .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:hover {
+      border-color: #83b56c;
+      background: #2b3e2e;
+    }
+
+    button:active { transform: scale(.97); }
+    button:focus-visible { outline: 2px solid #b7f27e; outline-offset: 3px; }
+
+    #start-button {
+      flex: 1;
+      border-color: #b7f27e;
+      background: #b7f27e;
+      color: #142014;
+    }
+
+    #start-button:hover { background: #c8ff90; }
+
+    .help {
+      margin: 15px 0 0;
+      color: #92a493;
+      font-size: .83rem;
+      text-align: center;
+    }
+
+    .touch-controls {
+      display: none;
+      width: 174px;
+      margin: 18px auto 0;
+      grid-template: repeat(2, 52px) / repeat(3, 52px);
+      gap: 7px;
+    }
+
+    .touch-controls button {
+      min-height: 52px;
+      font-size: 1.25rem;
+      touch-action: manipulation;
+    }
+
+    .touch-controls [data-direction="up"] { grid-area: 1 / 2; }
+    .touch-controls [data-direction="left"] { grid-area: 2 / 1; }
+    .touch-controls [data-direction="down"] { grid-area: 2 / 2; }
+    .touch-controls [data-direction="right"] { grid-area: 2 / 3; }
+
+    @media (pointer: coarse) {
+      .touch-controls { display: grid; }
+      .help { margin-top: 12px; }
+    }
+
+    @media (max-width: 420px) {
+      .game { padding: 20px 16px; border-radius: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="game">
+    <header>
+      <div>
+        <h1>貪吃蛇</h1>
+        <p class="subtitle">吃下果實，挑戰最高分！</p>
+      </div>
+      <div class="score-box" aria-label="目前分數">
+        <span class="score-label">SCORE</span>
+        <span id="score">0</span>
+      </div>
+    </header>
+
+    <section class="board-wrap" aria-label="貪吃蛇遊戲區">
+      <canvas id="board" width="400" height="400" aria-label="貪吃蛇遊戲畫面"></canvas>
+      <div id="overlay" class="overlay">
+        <div class="overlay-card">
+          <h2 id="overlay-title">準備好了嗎？</h2>
+          <p id="overlay-message">使用方向鍵或 WASD 移動蛇，吃到果實來得分。</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button id="start-button" type="button">開始遊戲</button>
+      <button id="pause-button" type="button" aria-label="暫停遊戲">暫停</button>
+    </div>
+
+    <div class="touch-controls" aria-label="觸控方向控制">
+      <button type="button" data-direction="up" aria-label="向上">▲</button>
+      <button type="button" data-direction="left" aria-label="向左">◀</button>
+      <button type="button" data-direction="down" aria-label="向下">▼</button>
+      <button type="button" data-direction="right" aria-label="向右">▶</button>
+    </div>
+    <p class="help">方向鍵 / WASD 移動　·　空白鍵暫停</p>
+  </main>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById("board");
+      const context = canvas.getContext("2d");
+      const scoreDisplay = document.getElementById("score");
+      const overlay = document.getElementById("overlay");
+      const overlayTitle = document.getElementById("overlay-title");
+      const overlayMessage = document.getElementById("overlay-message");
+      const startButton = document.getElementById("start-button");
+      const pauseButton = document.getElementById("pause-button");
+      const gridSize = 20;
+      const cellSize = canvas.width / gridSize;
+      const directions = {
+        ArrowUp: { x: 0, y: -1 },
+        w: { x: 0, y: -1 },
+        ArrowDown: { x: 0, y: 1 },
+        s: { x: 0, y: 1 },
+        ArrowLeft: { x: -1, y: 0 },
+        a: { x: -1, y: 0 },
+        ArrowRight: { x: 1, y: 0 },
+        d: { x: 1, y: 0 }
+      };
+
+      let snake;
+      let food;
+      let direction;
+      let nextDirection;
+      let score;
+      let timer = null;
+      let state = "ready";
+
+      function reset() {
+        snake = [
+          { x: 9, y: 10 },
+          { x: 8, y: 10 },
+          { x: 7, y: 10 }
+        ];
+        direction = { x: 1, y: 0 };
+        nextDirection = direction;
+        score = 0;
+        scoreDisplay.textContent = score;
+        placeFood();
+        draw();
+      }
+
+      function placeFood() {
+        const emptyCells = [];
+        for (let y = 0; y < gridSize; y += 1) {
+          for (let x = 0; x < gridSize; x += 1) {
+            if (!snake.some((segment) => segment.x === x && segment.y === y)) {
+              emptyCells.push({ x, y });
+            }
+          }
+        }
+        food = emptyCells.length
+          ? emptyCells[Math.floor(Math.random() * emptyCells.length)]
+          : null;
+      }
+
+      function draw() {
+        context.fillStyle = "#17241a";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        context.strokeStyle = "rgba(155, 190, 145, .055)";
+        context.lineWidth = 1;
+        for (let i = 1; i < gridSize; i += 1) {
+          const position = i * cellSize;
+          context.beginPath();
+          context.moveTo(position, 0);
+          context.lineTo(position, canvas.height);
+          context.moveTo(0, position);
+          context.lineTo(canvas.width, position);
+          context.stroke();
+        }
+
+        if (food) {
+          const centerX = food.x * cellSize + cellSize / 2;
+          const centerY = food.y * cellSize + cellSize / 2;
+          context.fillStyle = "#ff7970";
+          context.beginPath();
+          context.arc(centerX, centerY, cellSize * .34, 0, Math.PI * 2);
+          context.fill();
+          context.fillStyle = "#b7f27e";
+          context.beginPath();
+          context.ellipse(centerX + 4, centerY - 7, 4, 2, -.6, 0, Math.PI * 2);
+          context.fill();
+        }
+
+        snake.forEach((segment, index) => {
+          const inset = 2;
+          context.fillStyle = index === 0 ? "#c8ff90" : "#83c96c";
+          roundedRect(
+            segment.x * cellSize + inset,
+            segment.y * cellSize + inset,
+            cellSize - inset * 2,
+            cellSize - inset * 2,
+            index === 0 ? 6 : 5
+          );
+        });
+
+        if (snake.length) {
+          const head = snake[0];
+          const eyeOffsetX = direction.x === 0 ? 4 : direction.x * 3;
+          const eyeOffsetY = direction.y === 0 ? 4 : direction.y * 3;
+          const centerX = head.x * cellSize + cellSize / 2;
+          const centerY = head.y * cellSize + cellSize / 2;
+          context.fillStyle = "#233327";
+          for (const side of [-1, 1]) {
+            context.beginPath();
+            context.arc(
+              centerX + eyeOffsetX + (direction.y !== 0 ? side * 4 : 0),
+              centerY + eyeOffsetY + (direction.x !== 0 ? side * 4 : 0),
+              1.5,
+              0,
+              Math.PI * 2
+            );
+            context.fill();
+          }
+        }
+      }
+
+      function roundedRect(x, y, width, height, radius) {
+        context.beginPath();
+        context.roundRect(x, y, width, height, radius);
+        context.fill();
+      }
+
+      function tick() {
+        direction = nextDirection;
+        const head = {
+          x: snake[0].x + direction.x,
+          y: snake[0].y + direction.y
+        };
+        const ateFood = food && head.x === food.x && head.y === food.y;
+        const bodyToCheck = ateFood ? snake : snake.slice(0, -1);
+        const hitWall =
+          head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize;
+        const hitSelf = bodyToCheck.some(
+          (segment) => segment.x === head.x && segment.y === head.y
+        );
+
+        if (hitWall || hitSelf) {
+          endGame();
+          return;
+        }
+
+        snake.unshift(head);
+        if (ateFood) {
+          score += 10;
+          scoreDisplay.textContent = score;
+          placeFood();
+          if (!food) {
+            endGame(true);
+            return;
+          }
+        } else {
+          snake.pop();
+        }
+        draw();
+      }
+
+      function startGame() {
+        if (state === "running") return;
+        if (state === "ready" || state === "over") reset();
+        state = "running";
+        overlay.hidden = true;
+        startButton.textContent = "重新開始";
+        pauseButton.textContent = "暫停";
+        clearInterval(timer);
+        timer = setInterval(tick, Math.max(65, 135 - score / 10 * 2));
+      }
+
+      function pauseGame() {
+        if (state !== "running") return;
+        clearInterval(timer);
+        timer = null;
+        state = "paused";
+        showOverlay("已暫停", "按空白鍵或「繼續遊戲」回到遊戲。");
+        startButton.textContent = "繼續遊戲";
+        pauseButton.textContent = "暫停";
+      }
+
+      function endGame(won = false) {
+        clearInterval(timer);
+        timer = null;
+        state = "over";
+        showOverlay(won ? "恭喜！" : "遊戲結束", won
+          ? `你填滿了整個棋盤！最終分數：${score}`
+          : `最終分數：${score}，再試一次吧！`);
+        startButton.textContent = "再玩一次";
+      }
+
+      function showOverlay(title, message) {
+        overlayTitle.textContent = title;
+        overlayMessage.textContent = message;
+        overlay.hidden = false;
+      }
+
+      function changeDirection(newDirection) {
+        if (state !== "running") return;
+        if (
+          newDirection.x !== -direction.x ||
+          newDirection.y !== -direction.y
+        ) {
+          nextDirection = newDirection;
+        }
+      }
+
+      document.addEventListener("keydown", (event) => {
+        const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+        if (directions[key]) {
+          event.preventDefault();
+          changeDirection(directions[key]);
+        } else if (event.code === "Space") {
+          event.preventDefault();
+          if (state === "running") pauseGame();
+          else if (state === "paused" || state === "ready") startGame();
+        }
+      });
+
+      document.querySelectorAll("[data-direction]").forEach((button) => {
+        button.addEventListener("pointerdown", () => {
+          const name = button.dataset.direction;
+          const key = {
+            up: "ArrowUp",
+            down: "ArrowDown",
+            left: "ArrowLeft",
+            right: "ArrowRight"
+          }[name];
+          changeDirection(directions[key]);
+        });
+      });
+
+      startButton.addEventListener("click", () => {
+        if (state === "running") {
+          reset();
+          state = "ready";
+        }
+        startGame();
+      });
+      pauseButton.addEventListener("click", pauseGame);
+
+      reset();
+    })();
+  </script>
+</body>
+</html>
