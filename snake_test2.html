@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101812">
+  <title>多人貪吃蛇</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI", "Noto Sans TC", sans-serif;
+      background: #101812;
+      color: #eff7eb;
+      font-synthesis: none;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      margin: 0;
+      background: #101812;
+    }
+
+    .game {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      padding: 12px 16px;
+      background: rgba(22, 32, 24, .96);
+    }
+
+    header {
+      display: flex;
+      flex: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 6vw, 2rem);
+      letter-spacing: .04em;
+    }
+
+    .subtitle {
+      margin: 5px 0 0;
+      color: #92a493;
+      font-size: .9rem;
+    }
+
+    .score-box {
+      min-width: 88px;
+      padding: 9px 13px;
+      border: 1px solid #344637;
+      border-radius: 14px;
+      background: #1b291e;
+      text-align: center;
+    }
+
+    .score-label {
+      display: block;
+      color: #9aab9a;
+      font-size: .72rem;
+      letter-spacing: .12em;
+    }
+
+    #score {
+      display: block;
+      margin-top: 2px;
+      color: #b7f27e;
+      font-size: 1.45rem;
+      font-weight: 750;
+      line-height: 1.1;
+    }
+
+    .arena {
+      display: flex;
+      flex: 1;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .board-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      border: 1px solid #344637;
+      border-radius: 16px;
+      background: #101812;
+      line-height: 0;
+    }
+
+    #board {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    .banner {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      max-width: calc(100% - 24px);
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(12, 20, 14, .85);
+      color: #d6e2d3;
+      font-size: .88rem;
+      line-height: 1.4;
+      white-space: nowrap;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(12, 20, 14, .72);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .overlay-card {
+      width: min(100%, 320px);
+    }
+
+    .overlay h2 {
+      margin: 0 0 8px;
+      font-size: 1.7rem;
+    }
+
+    .overlay h2.countdown {
+      margin: 0;
+      color: #b7f27e;
+      font-size: 5rem;
+      line-height: 1;
+    }
+
+    .overlay p {
+      margin: 0;
+      color: #bdcabb;
+    }
+
+    .join-form {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .join-form input {
+      flex: 1;
+      min-width: 0;
+      min-height: 46px;
+      padding: 0 12px;
+      border: 1px solid #3c523f;
+      border-radius: 12px;
+      background: #17241a;
+      color: #eff7eb;
+      font: inherit;
+    }
+
+    .join-form input:focus-visible { outline: 2px solid #b7f27e; outline-offset: 1px; }
+
+    .panel {
+      display: flex;
+      flex: none;
+      flex-direction: column;
+      gap: 14px;
+      width: 220px;
+      padding: 12px;
+      overflow: hidden;
+      border: 1px solid #344637;
+      border-radius: 16px;
+      background: #1b291e;
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      margin: 0 0 8px;
+      color: #9aab9a;
+      font-size: .78rem;
+      font-weight: 650;
+      letter-spacing: .08em;
+    }
+
+    .scoreboard, .legend {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .scoreboard li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 32px;
+      font-size: .92rem;
+    }
+
+    .scoreboard li.out { opacity: .45; }
+    .scoreboard li.out .name { text-decoration: line-through; }
+    .scoreboard li.me .name { font-weight: 750; }
+
+    .swatch {
+      flex: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+    }
+
+    .name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .points {
+      color: #b7f27e;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .empty-slot {
+      color: #6d7f6f;
+      font-size: .85rem;
+    }
+
+    .legend li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 26px;
+      color: #bdcabb;
+      font-size: .85rem;
+    }
+
+    .legend .points { margin-left: auto; }
+
+    .fruit-icon {
+      flex: none;
+      width: 14px;
+      height: 14px;
+    }
+
+    .actions {
+      display: flex;
+      flex: none;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      min-height: 46px;
+      padding: 0 18px;
+      border: 1px solid #3c523f;
+      border-radius: 12px;
+      background: #233327;
+      color: #eff7eb;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+      transition: background .15s, transform .15s, border-color .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:hover:not(:disabled) {
+      border-color: #83b56c;
+      background: #2b3e2e;
+    }
+
+    button:active:not(:disabled) { transform: scale(.97); }
+    button:focus-visible { outline: 2px solid #b7f27e; outline-offset: 3px; }
+    button:disabled { cursor: not-allowed; opacity: .5; }
+
+    #start-button, #join-button {
+      border-color: #b7f27e;
+      background: #b7f27e;
+      color: #142014;
+    }
+
+    #start-button { flex: 1; }
+
+    #start-button:hover:not(:disabled),
+    #join-button:hover:not(:disabled) { background: #c8ff90; }
+
+    .help {
+      flex: none;
+      margin: 8px 0 0;
+      color: #92a493;
+      font-size: .83rem;
+      text-align: center;
+    }
+
+    .touch-controls {
+      display: none;
+      flex: none;
+      width: 170px;
+      margin: 10px auto 0;
+      grid-template: repeat(2, 52px) / repeat(3, 52px);
+      gap: 7px;
+    }
+
+    .touch-controls button {
+      min-height: 52px;
+      padding: 0;
+      font-size: 1.25rem;
+      touch-action: manipulation;
+    }
+
+    .touch-controls [data-direction="up"] { grid-area: 1 / 2; }
+    .touch-controls [data-direction="left"] { grid-area: 2 / 1; }
+    .touch-controls [data-direction="down"] { grid-area: 2 / 2; }
+    .touch-controls [data-direction="right"] { grid-area: 2 / 3; }
+
+    @media (pointer: coarse) {
+      .touch-controls { display: grid; }
+    }
+
+    @media (max-width: 760px) {
+      .arena { flex-direction: column; }
+      .panel { order: -1; width: 100%; padding: 6px 10px; }
+      .panel-title, .legend-block, .empty-slot { display: none; }
+      .scoreboard { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 10px; }
+      .scoreboard li { min-height: 24px; font-size: .8rem; gap: 5px; }
+      .swatch { width: 10px; height: 10px; }
+      .subtitle { display: none; }
+    }
+
+    @media (max-height: 560px) {
+      .game { padding: 8px 12px; }
+      header { margin-bottom: 6px; }
+      h1 { font-size: 1.2rem; }
+      .subtitle, .help, .legend-block { display: none; }
+      .score-box { padding: 3px 12px; }
+      #score { font-size: 1.1rem; }
+      .actions { margin-top: 6px; }
+      .scoreboard li { min-height: 24px; font-size: .8rem; }
+      .touch-controls {
+        position: fixed;
+        right: 20px;
+        bottom: 68px;
+        z-index: 2;
+        margin: 0;
+        opacity: .8;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="game">
+    <header>
+      <div>
+        <h1>多人貪吃蛇</h1>
+        <p class="subtitle">吃下果實、避開對手，活到最後就贏了！</p>
+      </div>
+      <div class="score-box" aria-label="我的分數">
+        <span class="score-label">SCORE</span>
+        <span id="score">0</span>
+      </div>
+    </header>
+
+    <div class="arena">
+      <section id="board-wrap" class="board-wrap" aria-label="貪吃蛇遊戲區">
+        <canvas id="board" aria-label="貪吃蛇遊戲畫面"></canvas>
+        <div id="banner" class="banner" role="status" hidden></div>
+        <div id="overlay" class="overlay">
+          <div class="overlay-card">
+            <h2 id="overlay-title">連線中…</h2>
+            <p id="overlay-message"></p>
+            <form id="join-form" class="join-form" hidden>
+              <input id="name-input" type="text" maxlength="12" placeholder="輸入暱稱" autocomplete="nickname" aria-label="暱稱">
+              <button id="join-button" type="submit">加入</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div>
+          <p class="panel-title"><span>玩家</span><span id="player-count">0 / 6</span></p>
+          <ol id="scoreboard" class="scoreboard"></ol>
+        </div>
+        <div class="legend-block">
+          <p class="panel-title"><span>果實</span></p>
+          <ul class="legend">
+            <li><canvas class="fruit-icon" data-fruit="apple"></canvas>蘋果<span class="points">10</span></li>
+            <li><canvas class="fruit-icon" data-fruit="grape"></canvas>葡萄<span class="points">20</span></li>
+            <li><canvas class="fruit-icon" data-fruit="star"></canvas>金星<span class="points">50</span></li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+
+    <div class="actions">
+      <button id="start-button" type="button" disabled>開始遊戲</button>
+    </div>
+
+    <div class="touch-controls" aria-label="觸控方向控制">
+      <button type="button" data-direction="up" aria-label="向上">▲</button>
+      <button type="button" data-direction="left" aria-label="向左">◀</button>
+      <button type="button" data-direction="down" aria-label="向下">▼</button>
+      <button type="button" data-direction="right" aria-label="向右">▶</button>
+    </div>
+    <p class="help">方向鍵 / WASD 移動　·　空白鍵開始　·　最多 6 人，撞到牆、自己或別人就出局</p>
+  </main>
+
+  <script>
+    (() => {
+      const boardWrap = document.getElementById("board-wrap");
+      const canvas = document.getElementById("board");
+      const context = canvas.getContext("2d");
+      const scoreDisplay = document.getElementById("score");
+      const banner = document.getElementById("banner");
+      const overlay = document.getElementById("overlay");
+      const overlayTitle = document.getElementById("overlay-title");
+      const overlayMessage = document.getElementById("overlay-message");
+      const joinForm = document.getElementById("join-form");
+      const nameInput = document.getElementById("name-input");
+      const joinButton = document.getElementById("join-button");
+      const startButton = document.getElementById("start-button");
+      const scoreboard = document.getElementById("scoreboard");
+      const playerCount = document.getElementById("player-count");
+
+      const NAME_KEY = "snake-name";
+      const RECONNECT_MS = 1500;
+      const PLAYER_COLORS = [
+        { body: "#7fd65f", head: "#c8ff90" },
+        { body: "#4fb0ff", head: "#a9dcff" },
+        { body: "#ff9838", head: "#ffcf9c" },
+        { body: "#ff72c2", head: "#ffbfe3" },
+        { body: "#ab84ff", head: "#d8c6ff" },
+        { body: "#d9dfd6", head: "#ffffff" }
+      ];
+      const DIRECTION_VECTORS = {
+        up: { x: 0, y: -1 },
+        down: { x: 0, y: 1 },
+        left: { x: -1, y: 0 },
+        right: { x: 1, y: 0 }
+      };
+      const KEY_DIRECTIONS = {
+        ArrowUp: "up", w: "up",
+        ArrowDown: "down", s: "down",
+        ArrowLeft: "left", a: "left",
+        ArrowRight: "right", d: "right"
+      };
+
+      let socket = null;
+      let connected = false;
+      let wantJoin = false;
+      let myId = null;
+      let roomFullNotice = false;
+      let state = { phase: "lobby", countdown: 0, result: null, fruits: [], players: [] };
+      let cols = 40;
+      let rows = 24;
+      let maxPlayers = 6;
+      let viewWidth = 0;
+      let viewHeight = 0;
+      let pixelRatio = 1;
+      let cellSize = 1;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      function loadName() {
+        try {
+          return localStorage.getItem(NAME_KEY) || "";
+        } catch {
+          return "";
+        }
+      }
+
+      function saveName(name) {
+        try {
+          localStorage.setItem(NAME_KEY, name);
+        } catch {
+          // 無法儲存時，下次重新輸入暱稱即可。
+        }
+      }
+
+      function me() {
+        return state.players.find((player) => player.id === myId) || null;
+      }
+
+      function measureCanvas() {
+        viewWidth = boardWrap.clientWidth;
+        viewHeight = boardWrap.clientHeight;
+        pixelRatio = window.devicePixelRatio || 1;
+        canvas.width = Math.round(viewWidth * pixelRatio);
+        canvas.height = Math.round(viewHeight * pixelRatio);
+        fitGrid();
+      }
+
+      function fitGrid() {
+        cellSize = Math.min(viewWidth / cols, viewHeight / rows);
+        offsetX = (viewWidth - cols * cellSize) / 2;
+        offsetY = (viewHeight - rows * cellSize) / 2;
+      }
+
+      function drawFruit(target, kind, centerX, centerY, size) {
+        if (kind === "grape") {
+          target.fillStyle = "#b25cff";
+          const radius = size * .17;
+          const grapes = [[-.17, -.14], [.17, -.14], [0, -.14], [-.09, .05], [.09, .05], [0, .24]];
+          for (const [dx, dy] of grapes) {
+            target.beginPath();
+            target.arc(centerX + dx * size, centerY + dy * size, radius, 0, Math.PI * 2);
+            target.fill();
+          }
+          return;
+        }
+
+        if (kind === "star") {
+          target.fillStyle = "#ffd84a";
+          target.beginPath();
+          for (let i = 0; i < 10; i += 1) {
+            const radius = size * (i % 2 === 0 ? .48 : .2);
+            const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+            const x = centerX + Math.cos(angle) * radius;
+            const y = centerY + Math.sin(angle) * radius;
+            if (i === 0) target.moveTo(x, y);
+            else target.lineTo(x, y);
+          }
+          target.closePath();
+          target.fill();
+          return;
+        }
+
+        target.fillStyle = "#ff5f56";
+        target.beginPath();
+        target.arc(centerX, centerY + size * .05, size * .34, 0, Math.PI * 2);
+        target.fill();
+        target.fillStyle = "#b7f27e";
+        target.beginPath();
+        target.ellipse(centerX + size * .16, centerY - size * .33, size * .17, size * .08, -.6, 0, Math.PI * 2);
+        target.fill();
+      }
+
+      function draw() {
+        const fieldWidth = cols * cellSize;
+        const fieldHeight = rows * cellSize;
+
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.fillStyle = "#101812";
+        context.fillRect(0, 0, viewWidth, viewHeight);
+        context.translate(offsetX, offsetY);
+
+        context.fillStyle = "#17241a";
+        context.fillRect(0, 0, fieldWidth, fieldHeight);
+
+        context.strokeStyle = "rgba(155, 190, 145, .055)";
+        context.lineWidth = 1;
+        context.beginPath();
+        for (let x = 1; x < cols; x += 1) {
+          context.moveTo(x * cellSize, 0);
+          context.lineTo(x * cellSize, fieldHeight);
+        }
+        for (let y = 1; y < rows; y += 1) {
+          context.moveTo(0, y * cellSize);
+          context.lineTo(fieldWidth, y * cellSize);
+        }
+        context.stroke();
+
+        for (const fruit of state.fruits) {
+          drawFruit(
+            context,
+            fruit.kind,
+            fruit.x * cellSize + cellSize / 2,
+            fruit.y * cellSize + cellSize / 2,
+            cellSize
+          );
+        }
+
+        for (const player of state.players) {
+          if (player.snake.length) drawSnake(player);
+        }
+        for (const player of state.players) {
+          if (player.snake.length) drawName(player);
+        }
+      }
+
+      function drawSnake(player) {
+        const colors = PLAYER_COLORS[player.slot];
+        const inset = cellSize * .1;
+
+        for (let index = player.snake.length - 1; index >= 0; index -= 1) {
+          const segment = player.snake[index];
+          context.fillStyle = index === 0 ? colors.head : colors.body;
+          context.beginPath();
+          context.roundRect(
+            segment.x * cellSize + inset,
+            segment.y * cellSize + inset,
+            cellSize - inset * 2,
+            cellSize - inset * 2,
+            cellSize * (index === 0 ? .3 : .25)
+          );
+          context.fill();
+        }
+
+        const head = player.snake[0];
+        const direction = DIRECTION_VECTORS[player.dir];
+        const forward = cellSize * .15;
+        const spread = cellSize * .2;
+        const centerX = head.x * cellSize + cellSize / 2;
+        const centerY = head.y * cellSize + cellSize / 2;
+        context.fillStyle = "#233327";
+        for (const side of [-1, 1]) {
+          context.beginPath();
+          context.arc(
+            centerX + direction.x * forward + direction.y * side * spread,
+            centerY + direction.y * forward + direction.x * side * spread,
+            cellSize * .08,
+            0,
+            Math.PI * 2
+          );
+          context.fill();
+        }
+
+        if (player.id === myId) {
+          context.strokeStyle = "#ffffff";
+          context.lineWidth = Math.max(1.5, cellSize * .08);
+          context.beginPath();
+          context.roundRect(
+            head.x * cellSize,
+            head.y * cellSize,
+            cellSize,
+            cellSize,
+            cellSize * .3
+          );
+          context.stroke();
+        }
+      }
+
+      function drawName(player) {
+        const head = player.snake[0];
+        const fontSize = Math.max(11, Math.min(14, cellSize * .6));
+        const text = player.id === myId ? `${player.name}（你）` : player.name;
+        context.font = `650 ${fontSize}px "Segoe UI", "Noto Sans TC", sans-serif`;
+        context.textAlign = "center";
+        context.textBaseline = "bottom";
+
+        const halfWidth = context.measureText(text).width / 2;
+        const x = Math.min(
+          cols * cellSize - halfWidth - 2,
+          Math.max(halfWidth + 2, head.x * cellSize + cellSize / 2)
+        );
+        const above = head.y * cellSize - 2;
+        const y = above - fontSize < 0 ? (head.y + 1) * cellSize + fontSize + 2 : above;
+
+        context.lineWidth = 3;
+        context.strokeStyle = "rgba(12, 20, 14, .85)";
+        context.strokeText(text, x, y);
+        context.fillStyle = PLAYER_COLORS[player.slot].head;
+        context.fillText(text, x, y);
+      }
+
+      function renderScoreboard() {
+        const players = [...state.players].sort(
+          (a, b) => b.score - a.score || a.slot - b.slot
+        );
+        scoreboard.replaceChildren();
+
+        for (const player of players) {
+          const item = document.createElement("li");
+          const isOut = state.phase === "playing" && !player.alive;
+          if (isOut) item.classList.add("out");
+          if (player.id === myId) item.classList.add("me");
+
+          const swatch = document.createElement("span");
+          swatch.className = "swatch";
+          swatch.style.background = PLAYER_COLORS[player.slot].body;
+
+          const name = document.createElement("span");
+          name.className = "name";
+          name.textContent = player.id === myId ? `${player.name}（你）` : player.name;
+
+          const points = document.createElement("span");
+          points.className = "points";
+          points.textContent = player.score;
+
+          item.append(swatch, name, points);
+          scoreboard.append(item);
+        }
+
+        for (let i = players.length; i < maxPlayers; i += 1) {
+          const item = document.createElement("li");
+          item.className = "empty-slot";
+          item.textContent = "等待加入…";
+          scoreboard.append(item);
+        }
+
+        playerCount.textContent = `${state.players.length} / ${maxPlayers}`;
+        const mine = me();
+        scoreDisplay.textContent = mine ? mine.score : 0;
+      }
+
+      function resultText(result) {
+        if (result.solo) {
+          return { title: "遊戲結束", message: `最終分數：${result.score}` };
+        }
+        if (result.winners.length === 1) {
+          return { title: `${result.winners[0]} 獲勝！`, message: "按「再玩一次」開始下一局。" };
+        }
+        if (result.winners.length > 1) {
+          return { title: "平手！", message: `${result.winners.join("、")} 同分。` };
+        }
+        return { title: "本局結束", message: "按「再玩一次」開始下一局。" };
+      }
+
+      function showOverlay(title, message, { big = false, form = false } = {}) {
+        overlay.hidden = false;
+        overlayTitle.textContent = title;
+        overlayTitle.classList.toggle("countdown", big);
+        overlayMessage.textContent = message;
+        joinForm.hidden = !form;
+      }
+
+      function renderOverlay() {
+        const mine = me();
+        const isFull = state.players.length >= maxPlayers;
+        banner.hidden = true;
+
+        if (location.protocol === "file:") {
+          showOverlay("請透過伺服器開啟", "在專案資料夾執行 npm start，再開啟 http://localhost:3000。");
+          return;
+        }
+        if (!connected) {
+          showOverlay(wantJoin ? "連線中斷" : "連線中…", wantJoin ? "正在重新連線…" : "");
+          return;
+        }
+        if (!mine) {
+          joinButton.disabled = isFull || wantJoin;
+          if (isFull || roomFullNotice) {
+            showOverlay("房間已滿", `目前已有 ${maxPlayers} 位玩家，有人離開後就能加入。`, { form: true });
+          } else {
+            const message = state.phase === "lobby"
+              ? `目前 ${state.players.length} 人，輸入暱稱加入。`
+              : "遊戲進行中，加入後下一局就能上場。";
+            showOverlay("加入遊戲", message, { form: true });
+          }
+          return;
+        }
+        if (state.phase === "countdown") {
+          showOverlay(String(state.countdown), "找到白框的蛇頭，那就是你！", { big: true });
+          return;
+        }
+        if (state.phase === "playing") {
+          overlay.hidden = true;
+          if (!mine.alive) {
+            banner.textContent = "觀戰中，下一局就能上場";
+            banner.hidden = false;
+          }
+          return;
+        }
+        if (state.result) {
+          const { title, message } = resultText(state.result);
+          showOverlay(title, message);
+          return;
+        }
+        showOverlay(
+          "等待開始",
+          state.players.length < 2
+            ? "可以先邀請朋友加入，也可以直接開始單人練習。"
+            : `已有 ${state.players.length} 位玩家，任何人都可以按「開始遊戲」。`
+        );
+      }
+
+      function renderControls() {
+        const canStart = Boolean(me()) && state.phase === "lobby" && connected;
+        startButton.disabled = !canStart;
+        if (state.phase === "countdown") startButton.textContent = "即將開始";
+        else if (state.phase === "playing") startButton.textContent = "遊戲進行中";
+        else startButton.textContent = state.result ? "再玩一次" : "開始遊戲";
+      }
+
+      function render() {
+        renderScoreboard();
+        renderOverlay();
+        renderControls();
+        draw();
+      }
+
+      function send(message) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify(message));
+        }
+      }
+
+      function connect() {
+        const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+        socket = new WebSocket(`${scheme}//${location.host}`);
+
+        socket.addEventListener("open", () => {
+          connected = true;
+        });
+
+        socket.addEventListener("message", (event) => {
+          const message = JSON.parse(event.data);
+          switch (message.t) {
+            case "hello":
+              cols = message.cols;
+              rows = message.rows;
+              maxPlayers = message.maxPlayers;
+              fitGrid();
+              if (wantJoin) send({ t: "join", name: nameInput.value });
+              break;
+            case "joined":
+              myId = message.id;
+              wantJoin = true;
+              roomFullNotice = false;
+              nameInput.blur();
+              break;
+            case "full":
+              wantJoin = false;
+              roomFullNotice = true;
+              break;
+            case "state":
+              state = message;
+              if (state.players.length < maxPlayers) roomFullNotice = false;
+              break;
+            default:
+              return;
+          }
+          render();
+        });
+
+        socket.addEventListener("close", () => {
+          connected = false;
+          myId = null;
+          render();
+          setTimeout(connect, RECONNECT_MS);
+        });
+      }
+
+      function changeDirection(direction) {
+        send({ t: "dir", d: direction });
+      }
+
+      document.addEventListener("keydown", (event) => {
+        if (event.target === nameInput) return;
+        const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+        if (KEY_DIRECTIONS[key]) {
+          event.preventDefault();
+          changeDirection(KEY_DIRECTIONS[key]);
+        } else if (event.code === "Space") {
+          event.preventDefault();
+          send({ t: "start" });
+        }
+      });
+
+      document.querySelectorAll("[data-direction]").forEach((button) => {
+        button.addEventListener("pointerdown", () => {
+          changeDirection(button.dataset.direction);
+        });
+      });
+
+      joinForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!connected || wantJoin) return;
+        const name = nameInput.value.trim();
+        saveName(name);
+        wantJoin = true;
+        send({ t: "join", name });
+        renderOverlay();
+      });
+
+      startButton.addEventListener("click", () => {
+        send({ t: "start" });
+        startButton.blur();
+      });
+
+      new ResizeObserver(() => {
+        measureCanvas();
+        draw();
+      }).observe(boardWrap);
+
+      document.querySelectorAll("[data-fruit]").forEach((icon) => {
+        const iconContext = icon.getContext("2d");
+        const ratio = window.devicePixelRatio || 1;
+        icon.width = 14 * ratio;
+        icon.height = 14 * ratio;
+        iconContext.scale(ratio, ratio);
+        drawFruit(iconContext, icon.dataset.fruit, 7, 7, 14);
+      });
+
+      nameInput.value = loadName();
+      measureCanvas();
+      render();
+      if (location.protocol !== "file:") connect();
+    })();
+  </script>
+</body>
+</html>
